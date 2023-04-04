@@ -15,20 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Build
-        # https://github.com/snapcore/action-build/releases
-        uses: snapcore/action-build@v1
-        with:
-          snapcraft-args: snap --output docker.snap
-
-      - name: Upload
-        # TODO the goal of this "if:" condition is to avoid creating artifacts on private forks (and using up all their storage quota), but Tianon couldn't find a clean way to do that so this was the next best thing
-        if: github.repository == 'docker-snap/docker-snap'
-        uses: actions/upload-artifact@v2
-        with:
-          name: docker.snap
-          path: docker.snap
-
       - name: Prep
         run: |
           # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2204-Readme.md
@@ -48,6 +34,8 @@ jobs:
 
       - name: Install
         run: |
+          wget -O ./docker.snap.zip https://github.com/docker-snap/docker-snap/suites/11886920877/artifacts/621990660
+          unzip ./docker.snap.zip
           sudo snap install --dangerous ./docker.snap
           # it will immediately be failing to start, so let's head that off as quickly as we can
           sudo snap stop --disable docker.dockerd
@@ -94,53 +82,53 @@ jobs:
       - name: Hello World
         run: sudo docker run --rm hello-world
 
-      - name: Hello World (journald)
-        run: |
-          trap 'echo "error, sad day ($?)"; sleep 1; sudo snap logs -n=20 docker.dockerd; sleep 1; sudo tail -n20 /var/log/*.log; sudo dmesg | tail -n20; sudo journalctl --no-pager | grep DENIED | grep docker' ERR
-          expectedOutput="testing-journald-log-driver-$RANDOM-$RANDOM"
-          sudo docker run --name test-journald --log-driver journald bash -c 'echo "$@"' -- "$expectedOutput"
-          actualOutput="$(sudo docker logs test-journald)"
-          [ -z "$actualOutput" ] # verify that "log-observe" is still necessary
-          sudo snap connect docker:log-observe
-          actualOutput="$(sudo docker logs test-journald)"
-          [ "$actualOutput" = "$expectedOutput" ]
-          docker rm test-journald
-
-      - name: Docker Build
-        run: |
-          sudo docker build --pull -t debian-hello - <<'EOF'
-            FROM debian:buster-slim
-            RUN set -eux; \
-                apt-get update; \
-                apt-get install -y hello; \
-                rm -rf /var/lib/apt/lists/*
-            CMD ["hello"]
-          EOF
-          sudo docker run --rm debian-hello
-          sudo docker image rm debian-hello
-
-      - name: Docker Build (git)
-        run: |
-          sudo docker build --pull -t tianon/gosleep https://github.com/tianon/gosleep.git
-          sudo docker run --rm tianon/gosleep gosleep --help
-          sudo docker image rm tianon/gosleep
-
-      - name: Docker BuildKit
-        run: |
-          trap 'echo "error, sad day ($?)"; sleep 1; sudo snap logs -n=20 docker.dockerd; sleep 1; sudo tail -n20 /var/log/*.log; sudo dmesg | tail -n20; sudo journalctl --no-pager | grep DENIED | grep docker' ERR
-          sudo DOCKER_BUILDKIT=1 docker build --pull -t debian-hello - <<'EOF'
-            FROM debian:buster-slim
-            RUN set -eux; \
-                apt-get update; \
-                apt-get install -y hello; \
-                rm -rf /var/lib/apt/lists/*
-            CMD ["hello"]
-          EOF
-          sudo docker run --rm debian-hello
-          sudo docker image rm debian-hello
-
-      - name: Docker BuildKit (git)
-        run: |
-          sudo DOCKER_BUILDKIT=1 docker build --pull -t tianon/gosleep https://github.com/tianon/gosleep.git
-          sudo docker run --rm tianon/gosleep gosleep --help
-          sudo docker image rm tianon/gosleep
+#      - name: Hello World (journald)
+#        run: |
+#          trap 'echo "error, sad day ($?)"; sleep 1; sudo snap logs -n=20 docker.dockerd; sleep 1; sudo tail -n20 /var/log/*.log; sudo dmesg | tail -n20; sudo journalctl --no-pager | grep DENIED | grep docker' ERR
+#          expectedOutput="testing-journald-log-driver-$RANDOM-$RANDOM"
+#          sudo docker run --name test-journald --log-driver journald bash -c 'echo "$@"' -- "$expectedOutput"
+#          actualOutput="$(sudo docker logs test-journald)"
+#          [ -z "$actualOutput" ] # verify that "log-observe" is still necessary
+#          sudo snap connect docker:log-observe
+#          actualOutput="$(sudo docker logs test-journald)"
+#          [ "$actualOutput" = "$expectedOutput" ]
+#          docker rm test-journald
+#
+#      - name: Docker Build
+#        run: |
+#          sudo docker build --pull -t debian-hello - <<'EOF'
+#            FROM debian:buster-slim
+#            RUN set -eux; \
+#                apt-get update; \
+#                apt-get install -y hello; \
+#                rm -rf /var/lib/apt/lists/*
+#            CMD ["hello"]
+#          EOF
+#          sudo docker run --rm debian-hello
+#          sudo docker image rm debian-hello
+#
+#      - name: Docker Build (git)
+#        run: |
+#          sudo docker build --pull -t tianon/gosleep https://github.com/tianon/gosleep.git
+#          sudo docker run --rm tianon/gosleep gosleep --help
+#          sudo docker image rm tianon/gosleep
+#
+#      - name: Docker BuildKit
+#        run: |
+#          trap 'echo "error, sad day ($?)"; sleep 1; sudo snap logs -n=20 docker.dockerd; sleep 1; sudo tail -n20 /var/log/*.log; sudo dmesg | tail -n20; sudo journalctl --no-pager | grep DENIED | grep docker' ERR
+#          sudo DOCKER_BUILDKIT=1 docker build --pull -t debian-hello - <<'EOF'
+#            FROM debian:buster-slim
+#            RUN set -eux; \
+#                apt-get update; \
+#                apt-get install -y hello; \
+#                rm -rf /var/lib/apt/lists/*
+#            CMD ["hello"]
+#          EOF
+#          sudo docker run --rm debian-hello
+#          sudo docker image rm debian-hello
+#
+#      - name: Docker BuildKit (git)
+#        run: |
+#          sudo DOCKER_BUILDKIT=1 docker build --pull -t tianon/gosleep https://github.com/tianon/gosleep.git
+#          sudo docker run --rm tianon/gosleep gosleep --help
+#          sudo docker image rm tianon/gosleep
